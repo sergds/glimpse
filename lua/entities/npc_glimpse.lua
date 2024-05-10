@@ -19,7 +19,7 @@ local SearchRadius = 2000
 --
 
 -- CVars
-local glimpse_debug = CreateConVar("glimpse_debug", "1", {FCVAR_GAMEDLL, FCVAR_REPLICATED, FCVAR_ARCHIVE}, "Print debug messages to console, as well as enable debug objects drawing. CVar's Integer also defines the log level: 1 - Most messages; 2 - Performance timing traces")
+local glimpse_debug = CreateConVar("glimpse_debug", "0", {FCVAR_GAMEDLL, FCVAR_REPLICATED, FCVAR_ARCHIVE}, "Print debug messages to console, as well as enable debug objects drawing. CVar's Integer also defines the log level: 1 - Most messages; 2 - Performance timing traces")
 local glimpse_staretime = CreateConVar("glimpse_staretime", "10", {FCVAR_GAMEDLL, FCVAR_REPLICATED, FCVAR_ARCHIVE}, "How long does it take for Glimpse to disappear and migrate to a new dark/unseen place. In seconds.")
 local glimpse_staretime_multiplier = CreateConVar("glimpse_staretime_multiplier", "10", {FCVAR_GAMEDLL, FCVAR_REPLICATED, FCVAR_ARCHIVE}, "Affects the rate of idletime depletion during stare.")
 local glimpse_debug_noai = CreateConVar("glimpse_debug_noai", "0", {FCVAR_GAMEDLL, FCVAR_REPLICATED, FCVAR_ARCHIVE}, "All Glimpse on map stop thinking and just stand lobotomized. AKA No thoughts, head empty mode. Useful for artistic screenshoting and stuff.")
