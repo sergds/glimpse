@@ -1,0 +1,11 @@
+{
+	"title"		:	"SCP-087-B-3 (Glimpse) Nextbot",
+	"type"		:	"npc",
+	"tags"		:	[ "fun", "scenic" ],
+	"ignore"	:
+	[
+		"*.psd",
+		"*.vcproj",
+		"*.svn*"
+	]
+}
