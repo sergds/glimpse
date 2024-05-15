@@ -16,6 +16,7 @@ ENT.AutomaticFrameAdvance = true
 -- Common
 local LoseTargetDist = 3000
 local SearchRadius = 2000
+local screenSpaceFOVMagicNumber = 0.37 -- Boo! Magic! Which probably breaks on non 16:9 aspect ratios, soo TODO: Make a CVar
 --
 
 -- CVars
@@ -29,6 +30,7 @@ local glimpse_damage = CreateConVar("glimpse_damage", "1", {FCVAR_GAMEDLL, FCVAR
 local glimpse_damage_rate = CreateConVar("glimpse_damage_rate", "0.3", {FCVAR_GAMEDLL, FCVAR_REPLICATED, FCVAR_ARCHIVE}, "Delay between psychic damage.")
 local glimpse_lethal_touch = CreateConVar("glimpse_lethal_touch", "1", {FCVAR_GAMEDLL, FCVAR_REPLICATED, FCVAR_ARCHIVE}, "Makes glimpse lethal to touch.")
 local glimpse_damage_rate_viewangle_multiplier = CreateConVar("glimpse_damage_rate_viewangle_multiplier", "0.1", {FCVAR_GAMEDLL, FCVAR_REPLICATED, FCVAR_ARCHIVE}, "if > 0, Damage rate is faster, the more directly you look at the glimpse. Higher values makes this damage boost more severe.")
+local glimpse_expensive_ispointseen = CreateConVar("glimpse_expensive_ispointseen", "1", {FCVAR_GAMEDLL, FCVAR_REPLICATED, FCVAR_ARCHIVE}, "More accurate (and less strict) point visibility check. 1 by default, assuming your Core 2 Duo (or whatever ancient cpu gmod wiki believes you have) can handle extra square root calculation per frame.")
 --
 
 if CLIENT then
@@ -113,13 +115,13 @@ function ENT:Think() -- cogito ergo sum
         local ply = player.GetAll()
         for _, v in pairs(ply) do
             local glimpseAndMeLookinAngle = VecAngle2D((self:GetPos() - v:GetPos()), v:GetAimVector())
-            if v:IsLineOfSightClear(self) and glimpseAndMeLookinAngle < v:GetFOV() - v:GetFOV() * 0.37 then
+            if v:IsLineOfSightClear(self) and glimpseAndMeLookinAngle < v:GetFOV() - v:GetFOV() * screenSpaceFOVMagicNumber then
                 if self.dmgTimer > 0 then
                     if glimpse_damage_rate_viewangle_multiplier:GetFloat() > 0 then
                         if SERVER then
-                            -- self:dPrint("ViewAngle Psychic damage to player: " .. (((v:GetFOV() - v:GetFOV() * 0.37) - glimpseAndMeLookinAngle) * glimpse_damage_rate_viewangle_multiplier:GetFloat()), "Think", 2)
+                            -- self:dPrint("ViewAngle Psychic damage to player: " .. (((v:GetFOV() - v:GetFOV() * screenSpaceFOVMagicNumber) - glimpseAndMeLookinAngle) * glimpse_damage_rate_viewangle_multiplier:GetFloat()), "Think", 2)
                         end
-                        self.dmgTimer = self.dmgTimer - FrameTime() * (((v:GetFOV() - v:GetFOV() * 0.37) - glimpseAndMeLookinAngle) * glimpse_damage_rate_viewangle_multiplier:GetFloat()) -- damage rate should depend on view angle
+                        self.dmgTimer = self.dmgTimer - FrameTime() * (((v:GetFOV() - v:GetFOV() * screenSpaceFOVMagicNumber) - glimpseAndMeLookinAngle) * glimpse_damage_rate_viewangle_multiplier:GetFloat()) -- damage rate should depend on view angle
                     else
                         self.dmgTimer = self.dmgTimer - FrameTime()
                     end
@@ -132,10 +134,14 @@ function ENT:Think() -- cogito ergo sum
                 if SERVER then
                     local dmg = DamageInfo()
                     dmg:SetDamage(glimpse_damage:GetInt())
-                    dmg:SetDamageType(DMG_NERVEGAS)
+                    dmg:SetDamageType(DMG_PREVENT_PHYSICS_FORCE)
+                    dmg:SetDamageForce(Vector(0,0,0))
                     dmg:SetAttacker(self)
                     dmg:SetInflictor(self)
+                    v:AddEFlags(EFL_NO_DAMAGE_FORCES)
                     v:TakeDamageInfo(dmg)
+                    v:ViewPunchReset()
+                    v:RemoveEFlags(EFL_NO_DAMAGE_FORCES)
                 end
             end
         end
@@ -265,17 +271,17 @@ function ENT:FindEnemy()
 	return false
 end
 
-local function isPointSeen(point) -- point can be an entity
+local function isPointSeen(point)
     local tStart = SysTime()
     for _, ply in pairs(player.GetAll()) do
-        if (IsValid(ply) and ply:Alive() and ply:IsLineOfSightClear(point)) then
-            if (SysTime() - tStart > 0.005) then -- Don't flood console to crash with small values
-                self:dPrint("Evaluated in " .. SysTime() - tStart, "isPointSeen", 2)
-            end
+        if (IsValid(ply) and ply:Alive() and ply:IsLineOfSightClear(point) and !glimpse_expensive_ispointseen:GetBool()) then
             return true
         end
-        if (SysTime() - tStart > 0.005) then -- Don't flood console to crash with small values
-            self:dPrint("Evaluated in " .. SysTime() - tStart, "isPointSeen", 2)
+        if (glimpse_expensive_ispointseen:GetBool() and IsValid(ply) and ply:Alive() and ply:IsLineOfSightClear(point)) then
+            local glimpseAndMeLookinAngle = VecAngle2D((point - ply:GetPos()), ply:GetAimVector())
+            if glimpseAndMeLookinAngle < ply:GetFOV() - ply:GetFOV() * screenSpaceFOVMagicNumber then
+                return true
+            end
         end
         return false
     end
@@ -410,7 +416,7 @@ function ENT:RunBehaviour()
             self:dPrint("Unstuck!", "RunBehaviour", 1)
 			self:HandleStuck()
 		end
-        if isPointSeen(self) then
+        if isPointSeen(self:GetPos()) then
             self:dPrint("Not appearing in a seen point! Finding AGAIN!", "RunBehaviour", 1)
             iterSinceYield = iterSinceYield + 1
             continue
